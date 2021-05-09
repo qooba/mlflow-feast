@@ -1,0 +1,266 @@
+# namespace
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: qooba
+---
+# mlflow
+apiVersion: v1
+kind: Service
+metadata:
+  name: mlflow
+  namespace: qooba
+  labels:
+    app: mlflow
+spec:
+  type: NodePort
+  ports:
+  - name: http
+    port: 5000
+    targetPort: 5000
+    nodePort: 31385
+  selector:
+    app: mlflow
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mlflow
+  namespace: qooba
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: mlflow
+      version: v1
+  template:
+    metadata:
+      labels:
+        app: mlflow
+        version: v1
+    spec:
+      containers:
+      - image: qooba/mlflow:dev
+        imagePullPolicy: IfNotPresent
+        name: mlflow
+        command: ["mlflow","server","-h","0.0.0.0","--backend-store-uri","sqlite:///mlflow/mlflow.db","--default-artifact-root","s3://mlflow/mlruns"]
+        env:
+        - name: AWS_ACCESS_KEY_ID
+          value: minio
+        - name: AWS_SECRET_ACCESS_KEY
+          value: minio123
+        - name: MLFLOW_S3_ENDPOINT_URL
+          value: http://minio.qooba.svc.cluster.local:9000
+        ports:
+        - containerPort: 5000
+        volumeMounts:
+          - mountPath: /mlflow
+            name: mlflow
+      volumes:
+        - name: mlflow
+          hostPath:
+            path: /var/local/feast/mlflow
+            type: DirectoryOrCreate
+---
+# minio
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: minio
+    namespace: qooba
+  name: minio
+  namespace: qooba
+spec:
+  progressDeadlineSeconds: 600
+  replicas: 1
+  revisionHistoryLimit: 10
+  selector:
+    matchLabels:
+      app: minio
+      namespace: qooba
+  template:
+    metadata:
+      labels:
+        app: minio
+        namespace: qooba
+    spec:
+      containers:
+      - args:
+        - server
+        - /data
+        env:
+        - name: MINIO_ACCESS_KEY
+          value: minio
+        - name: MINIO_SECRET_KEY
+          value: minio123
+        image: minio/minio:edge
+        imagePullPolicy: IfNotPresent
+        name: minio
+        ports:
+        - containerPort: 9000
+          protocol: TCP
+        resources: {}
+        terminationMessagePath: /dev/termination-log
+        terminationMessagePolicy: File
+        volumeMounts:
+        - mountPath: /data
+          name: data
+          subPath: minio
+      volumes:
+        - name: data
+          hostPath:
+            path: /var/local/feast/minio
+            type: DirectoryOrCreate
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app: minio
+    namespace: qooba
+  name: minio
+  namespace: qooba
+spec:
+  type: NodePort
+  ports:
+  - port: 9000
+    protocol: TCP
+    targetPort: 9000
+    nodePort: 31386
+  selector:
+    app: minio
+    namespace: qooba
+---
+# redis
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app: redis
+    namespace: qooba
+  name: redis
+  namespace: qooba
+spec:
+  type: NodePort
+  ports:
+  - port: 6379
+    protocol: TCP
+    targetPort: 6379
+    nodePort: 31387
+  selector:
+    app: redis
+    namespace: qooba
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: redis
+    namespace: qooba
+  name: redis
+  namespace: qooba
+spec:
+  progressDeadlineSeconds: 600
+  replicas: 1
+  revisionHistoryLimit: 10
+  selector:
+    matchLabels:
+      app: redis
+      namespace: qooba
+  template:
+    metadata:
+      labels:
+        app: redis
+        namespace: qooba
+    spec:
+      containers:
+      - image: redis
+        imagePullPolicy: IfNotPresent
+        name: redis
+        ports:
+        - containerPort: 6379
+          protocol: TCP
+        resources: {}
+        terminationMessagePath: /dev/termination-log
+        terminationMessagePolicy: File
+---
+# jupyter
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app: jupyter
+    namespace: qooba
+  name: jupyter
+  namespace: qooba
+spec:
+  type: NodePort
+  ports:
+  - port: 8888
+    protocol: TCP
+    targetPort: 8888
+    nodePort: 31388
+  selector:
+    app: jupyter
+    namespace: qooba
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: jupyter
+    namespace: qooba
+  name: jupyter
+  namespace: qooba
+spec:
+  progressDeadlineSeconds: 600
+  replicas: 1
+  revisionHistoryLimit: 10
+  selector:
+    matchLabels:
+      app: jupyter
+      namespace: qooba
+  template:
+    metadata:
+      labels:
+        app: jupyter
+        namespace: qooba
+    spec:
+      containers:
+      - image: qooba/feast:v0.10
+        imagePullPolicy: IfNotPresent
+        name: jupyter
+        env:
+        - name: MLFLOW_TRACKING_URI
+          value: http://mlflow.qooba.svc.cluster.local:5000
+        - name: AWS_ACCESS_KEY_ID
+          value: minio
+        - name: AWS_SECRET_ACCESS_KEY
+          value: minio123
+        - name: MLFLOW_S3_ENDPOINT_URL
+          value: http://minio.qooba.svc.cluster.local:9000
+        - name: FEAST_S3_ENDPOINT_URL
+          value: http://minio.qooba.svc.cluster.local:9000
+        - name: REDIS_TYPE
+          value: REDIS
+        - name: REDIS_CONNECTION_STRING
+          value: redis.qooba.svc.cluster.local:6379,db=0
+        - name: FEAST_TELEMETRY
+          value: "false"
+        ports:
+        - containerPort: 8888
+          protocol: TCP
+        resources: {}
+        terminationMessagePath: /dev/termination-log
+        terminationMessagePolicy: File
+        volumeMounts:
+        - mountPath: /home/jovyan
+          name: notebooks
+      volumes:
+        - name: notebooks
+          hostPath:
+            path: /var/local/feast/jupyter
+            type: DirectoryOrCreate
+

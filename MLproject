@@ -1,0 +1,11 @@
+name: propensity
+
+entry_points:
+  main:
+    parameters:
+      var_smoothing: {type: float, default: 1e-9}
+    command: "python3 ./mlflow_feast/train.py --var_smoothing {var_smoothing}"
+  validate:
+    parameters:
+      data_file: path
+    command: "python validate.py {data_file}"

@@ -1,0 +1,3 @@
+project: propensity_repo
+registry: s3://feast/propensity.db
+provider: redis

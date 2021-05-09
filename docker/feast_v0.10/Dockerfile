@@ -1,0 +1,19 @@
+FROM continuumio/miniconda3
+
+RUN pip3 install mlflow jupyterlab json2html
+#RUN pip install install ipython==7.10.0
+
+ENV DEBIAN_FRONTEND=noninteractive
+RUN apt update && apt install curl git cmake ack g++ python3-dev vim-youcompleteme tmux -yq
+RUN apt-get install g++-8 -yq
+RUN update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-8 800 --slave /usr/bin/g++ g++ /usr/bin/g++-8
+COPY setup.sh setup.sh
+RUN bash setup.sh
+RUN cd ~/.vim/bundle/YouCompleteMe && git checkout d98f896 && cd ./third_party/ycmd && git checkout 2c4b907dd0ec2d32bf0d8d997690de22aaa3ae4d && cd ../.. && git submodule update --init --recursive && python3 install.py --clang-completer
+
+RUN pip3 install nbdev scikit-learn==0.24.2 cloudpickle==1.6.0 joblib==1.0.1
+RUN git clone -b qooba_master https://github.com/qooba/feast.git
+RUN cd feast && make install-python-ci-dependencies
+RUN cd feast/sdk/python && pip install -e .
+
+CMD ["sh","-c", "jupyter notebook --notebook-dir=/home/jovyan --ip=0.0.0.0 --no-browser --port=8888 --NotebookApp.token='' --NotebookApp.password='' --NotebookApp.allow_origin='*' --NotebookApp.base_url=${NB_PREFIX} --allow-root"]

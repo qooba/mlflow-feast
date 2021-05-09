@@ -1,0 +1,85 @@
+# mlflow-serving
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: mlflow-serving
+  namespace: qooba
+data:
+  feature_store: |
+    project: propensity_repo
+    registry: s3://feast/propensity.db
+    provider: redis
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: mlflow-serving
+  namespace: qooba
+  labels:
+    app: mlflow-serving
+spec:
+  type: NodePort
+  ports:
+  - name: http
+    port: 5000
+    targetPort: 5000
+    nodePort: 31389
+  selector:
+    app: mlflow-serving
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mlflow-serving
+  namespace: qooba
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: mlflow-serving
+      version: v1
+  template:
+    metadata:
+      labels:
+        app: mlflow-serving
+        version: v1
+    spec:
+      containers:
+      - image: qooba/mlflow:serving
+        imagePullPolicy: IfNotPresent
+        name: mlflow-serving
+        env:
+        - name: MLFLOW_TRACKING_URI
+          value: http://mlflow.qooba.svc.cluster.local:5000
+        - name: AWS_ACCESS_KEY_ID
+          value: minio
+        - name: AWS_SECRET_ACCESS_KEY
+          value: minio123
+        - name: MLFLOW_S3_ENDPOINT_URL
+          value: http://minio.qooba.svc.cluster.local:9000
+        - name: FEAST_S3_ENDPOINT_URL
+          value: http://minio.qooba.svc.cluster.local:9000
+        - name: REDIS_TYPE
+          value: REDIS
+        - name: REDIS_CONNECTION_STRING
+          value: redis.qooba.svc.cluster.local:6379,db=0
+        - name: FEAST_TELEMETRY
+          value: "false"
+        - name: FEAST_REPO_PATH
+          value: /feast_repository
+        - name: PORT
+          value: "5000"
+        - name: MODEL
+          value: models:/propensity_model/Production
+        ports:
+        - containerPort: 5000
+        volumeMounts:
+          - mountPath: /feast_repository
+            name: config
+      volumes:
+        - name: config
+          configMap:
+            name: mlflow-serving
+            items:
+            - key: feature_store
+              path: feature_store.yaml

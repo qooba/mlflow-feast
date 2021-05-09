@@ -1,0 +1,14 @@
+FROM continuumio/miniconda3
+RUN pip install mlflow==1.17.0 cloudpickle==1.6.0 scikit-learn==0.24.2 joblib==1.0.1 gevent boto3==1.17.69
+ENV GUNICORN_CMD_ARGS="--timeout 60 -k gevent"
+WORKDIR /opt/mlflow
+ENV PORT=5000
+ENV WORKER_NUMBER=4
+
+RUN git clone -b qooba_master https://github.com/qooba/feast.git
+RUN cd feast/sdk/python && pip install -e .
+
+CMD mlflow models serve -m $MODEL -h 0.0.0.0 -p $PORT -w $WORKER_NUMBER --no-conda
+
+#COPY model_dir/model /opt/ml/model
+#CMD mlflow models serve -m /opt/ml/model -h 0.0.0.0 -p $PORT -w $WORKER_NUMBER --no-conda
