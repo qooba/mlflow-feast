@@ -12,7 +12,7 @@ RUN bash setup.sh
 RUN cd ~/.vim/bundle/YouCompleteMe && git checkout d98f896 && cd ./third_party/ycmd && git checkout 2c4b907dd0ec2d32bf0d8d997690de22aaa3ae4d && cd ../.. && git submodule update --init --recursive && python3 install.py --clang-completer
 
 RUN pip3 install nbdev scikit-learn==0.24.2 cloudpickle==1.6.0 joblib==1.0.1
-RUN git clone -b qooba_master https://github.com/qooba/feast.git
+RUN git clone -b mlflow-feast https://github.com/qooba/feast.git
 RUN cd feast && make install-python-ci-dependencies
 RUN cd feast/sdk/python && pip install -e .
 

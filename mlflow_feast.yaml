@@ -229,7 +229,7 @@ spec:
         namespace: qooba
     spec:
       containers:
-      - image: qooba/feast:v0.10
+      - image: qooba/feast:mlflow-feast
         imagePullPolicy: IfNotPresent
         name: jupyter
         env:
