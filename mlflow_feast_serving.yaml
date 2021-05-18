@@ -52,9 +52,15 @@ spec:
         - name: MLFLOW_TRACKING_URI
           value: http://mlflow.qooba.svc.cluster.local:5000
         - name: AWS_ACCESS_KEY_ID
-          value: minio
+          valueFrom:
+            secretKeyRef:
+              name: minio-auth
+              key: username
         - name: AWS_SECRET_ACCESS_KEY
-          value: minio123
+          valueFrom:
+            secretKeyRef:
+              name: minio-auth
+              key: password
         - name: MLFLOW_S3_ENDPOINT_URL
           value: http://minio.qooba.svc.cluster.local:9000
         - name: FEAST_S3_ENDPOINT_URL
